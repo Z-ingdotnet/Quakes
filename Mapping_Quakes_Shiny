@@ -47,16 +47,13 @@ body <- dashboardBody(frow1, frow2
 
 ui <- dashboardPage(title = 'This is my Page title', header, sidebar, body, skin='red')
 
-# Data pre-processing ----
-# Tweak the "am" variable to have nicer factor labels -- since this
-# doesn't rely on any user inputs, we can do this once at startup
-# and then use the value throughout the lifetime of the app
 
 
 # Define server logic to plot various variables against mpg ----
 server <- function(input, output) {
   
-  
+# Data pre-processing ----
+
   world_map <- fortify(world)
   plates_map <- fortify(plates)
   quakes_dat <- data.frame(quakes)
