@@ -1,3 +1,8 @@
+#Past 30 Days
+#Updated every minute.
+
+
+
 Packages <- c(
  "shiny","shinydashboard","rgdal","maptools","ggplot2","ggthemes","rgeos"
 )
@@ -5,14 +10,21 @@ Packages <- c(
 lapply(Packages, library, character.only = TRUE)
 
 
+
+
 setwd("C:/Users/Zing/OneDrive/GitHub/R/Mapping_Quakes")
+
+
+
+New_Quakes <- readOGR("all_month.geojson", encoding="OGRGeoJSON", stringsAsFactors=FALSE)
+
 
 world <- readOGR("countries.geo.json", encoding="OGRGeoJSON", stringsAsFactors=FALSE)
 plates <- readOGR("plates.json", encoding="OGRGeoJSON", stringsAsFactors=FALSE)
 quakes <- readOGR("quakes2(2014-2016).json", encoding="OGRGeoJSON", stringsAsFactors=FALSE)
 
-
-
+   
+                    
 header <- dashboardHeader(title = "Basic Dashboard")  
 
 sidebar <- dashboardSidebar(
@@ -31,6 +43,7 @@ frow1 <- fluidRow(
 )
 
 
+
 frow2 <- fluidRow(
   
 #  box(
@@ -45,22 +58,44 @@ frow2 <- fluidRow(
 body <- dashboardBody(frow1, frow2
                       )
 
-ui <- dashboardPage(title = 'This is my Page title', header, sidebar, body, skin='red')
+ui <- dashboardPage(title = 'Real Time EarthQuakes from around the globe', header, sidebar, body, skin='red')
 
+# Data pre-processing ----
+# Tweak the "am" variable to have nicer factor labels -- since this
+# doesn't rely on any user inputs, we can do this once at startup
+# and then use the value throughout the lifetime of the app
 
 
 # Define server logic to plot various variables against mpg ----
 server <- function(input, output) {
   
-# Data pre-processing ----
-
+  
   world_map <- fortify(world)
+ 
   plates_map <- fortify(plates)
   quakes_dat <- data.frame(quakes)
-  quakes_dat$trans <- quakes_dat$mag %% 5      #integer remainer
+  
+  New_Quakes_dat<-data.frame(New_Quakes)
+  
+ #Convert epoch to human-readable date
+  New_Quakes_dat$date<-as.POSIXct(as.numeric(New_Quakes_dat[,c(4)])/1000, origin = "1970-01-01")
+    str(New_Quakes_dat)
+    New_Quakes_dat$date2<-as.Date(New_Quakes_dat$date)
+    
+    
+  #Convert epoch to human-readable date
+    quakes_dat$date<-as.POSIXct(as.numeric(quakes_dat[,c(4)])/1000, origin = "1970-01-01")
+    str(quakes_dat)
+    quakes_dat$date2<-as.Date(quakes_dat$date)
+    
+  
+  #quakes_dat$trans <- quakes_dat$mag %% 5      #integer remainer
+  
+  #New_Quakes_dat$trans <- New_Quakes_dat$mag %% 5      #integer remainer
   
   
-
+  
+  quakes_master<-unique(rbind(quakes_dat, New_Quakes_dat)) # rbind both data.frames
   
   # Return the formula text for printing as a caption ----
   output$caption <- renderText({
@@ -77,24 +112,31 @@ server <- function(input, output) {
     gg <- gg + geom_map(data=plates_map, map=plates_map,
                         aes(x=long, y=lat, map_id=id),
                         color="black", size=0.1, fill="#00000000", alpha=0)
-    gg <- gg + geom_point(data=quakes_dat,
-                          aes(x=coords.x1, y=coords.x2, size=trans),
+    gg <- gg + geom_point(data=quakes_master,
+                          aes(x=coords.x1, y=coords.x2, size=mag),
                           shape=1, alpha=1/3, color="#d47e5d", fill="#00000000")
-    gg <- gg + geom_point(data=subset(quakes_dat, mag>7.5),
-                          aes(x=coords.x1, y=coords.x2, size=trans),
+    gg <- gg + geom_point(data=subset(quakes_master, mag>7.5),
+                          aes(x=coords.x1, y=coords.x2, size=mag),
                           shape=1, alpha=1, color="black", fill="#00000000")
-    gg <- gg + geom_text(data=subset(quakes_dat, mag>7.5),
+    gg <- gg + geom_text(data=subset(quakes_master, mag>7.5),
                          aes(x=coords.x1, y=coords.x2, label=sprintf("Mag %2.1f", mag)),
-                         color="black", size=3, vjust=c(5, 3.8, 3.7, 4.5 , 4, 3.9, 
-                                                        5.2, 3.9,3.9, 4.4, 3.9, 3.9,
-                                                        4, 4, 4.5), fontface="bold")
-    gg <- gg + scale_size(name="Magnitude", trans="exp", labels=c(5:8), range=c(1, 30))
+                         color="black", size=3, fontface="bold")
+    gg <- gg + scale_size(name="Magnitude",trans='exp'
+                          ,breaks = c(5:8)
+                          , labels = c(5:8)
+                          ,range=c(1, 20),guide = "legend")
+    #gg <- gg +scale_fill_manual(values = c(5,6,7,8), 
+    #                  drop = FALSE,
+    #                  name="test",
+    #                  labels=c("5", "6", "7", "8"))
     gg <- gg + coord_map("mollweide")
+    
     gg <- gg + theme_map()
     gg <- gg + theme(legend.position=c(0.05, 0.99))
     gg <- gg + theme(legend.direction="horizontal")
     gg <- gg + theme(legend.key=element_rect(color="#00000000"))
     gg
+    
   })
 }
 
