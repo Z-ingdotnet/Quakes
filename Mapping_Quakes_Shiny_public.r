@@ -21,27 +21,60 @@ New_Quakes <- readOGR("all_month.geojson", encoding="OGRGeoJSON", stringsAsFacto
 
 world <- readOGR("countries.geo.json", encoding="OGRGeoJSON", stringsAsFactors=FALSE)
 plates <- readOGR("plates.json", encoding="OGRGeoJSON", stringsAsFactors=FALSE)
-quakes <- readOGR("quakes2(2014-2016).json", encoding="OGRGeoJSON", stringsAsFactors=FALSE)
+#quakes <- readOGR("quakes2(2014-2016).json", encoding="OGRGeoJSON", stringsAsFactors=FALSE)
 
    
-                    
+world_map <- fortify(world)
+plates_map <- fortify(plates)
+quakes_dat <- data.frame(quakes)
+New_Quakes_dat<-data.frame(New_Quakes)
+
+#Convert epoch to human-readable date
+New_Quakes_dat$date<-as.POSIXct(as.numeric(New_Quakes_dat[,c(4)])/1000, origin = "1970-01-01")
+str(New_Quakes_dat)
+New_Quakes_dat$date2<-as.Date(New_Quakes_dat$date)
+
+#Convert epoch to human-readable date
+#   quakes_dat$date<-as.POSIXct(as.numeric(quakes_dat[,c(4)])/1000, origin = "1970-01-01")
+#   str(quakes_dat)
+#   quakes_dat$date2<-as.Date(quakes_dat$date)
+
+#quakes_dat$trans <- quakes_dat$mag %% 5      #integer remainer
+#New_Quakes_dat$trans <- New_Quakes_dat$mag %% 5      #integer remainer
+
+load("./quakes_master.Rdata")
+
+quakes_master<-unique(rbind(quakes_master, New_Quakes_dat)) # rbind both data.frames
+save(quakes_master, file = "./quakes_master.Rdata")
+
+
+
 header <- dashboardHeader(title = "Basic Dashboard")  
 
 sidebar <- dashboardSidebar(
   sidebarMenu(
     menuItem("Dashboard", tabName = "dashboard", icon = icon("dashboard")),
-    menuItem("Visit-us", icon = icon("barcode ",lib='glyphicon'), 
+    menuItem("Contact-us", icon = icon("barcode ",lib='glyphicon'), 
              href = "http://z-ing.net")
   )
 )
 
 
-frow1 <- fluidRow(
-  valueBoxOutput("value1")
- # ,valueBoxOutput("value2")
-  #,valueBoxOutput("value3")
-)
 
+
+frow1 <- fluidRow(
+  column(3,
+         dateRangeInput("dateRange", h3("Filter Earthquake Events by date")
+                       , start = min(quakes_master$date), end =  max(quakes_master$date), min = NULL,
+                        max = NULL, format = "yyyy-mm-dd",
+                        autoclose = TRUE
+          )
+         
+         )
+  #valueBoxOutput("value1")
+ # ,valueBoxOutput("value2")
+
+)
 
 
 frow2 <- fluidRow(
@@ -69,42 +102,19 @@ ui <- dashboardPage(title = 'Real Time EarthQuakes from around the globe', heade
 # Define server logic to plot various variables against mpg ----
 server <- function(input, output) {
   
-  
-  world_map <- fortify(world)
  
-  plates_map <- fortify(plates)
-  quakes_dat <- data.frame(quakes)
-  
-  New_Quakes_dat<-data.frame(New_Quakes)
-  
- #Convert epoch to human-readable date
-  New_Quakes_dat$date<-as.POSIXct(as.numeric(New_Quakes_dat[,c(4)])/1000, origin = "1970-01-01")
-    str(New_Quakes_dat)
-    New_Quakes_dat$date2<-as.Date(New_Quakes_dat$date)
-    
-    
-  #Convert epoch to human-readable date
-    quakes_dat$date<-as.POSIXct(as.numeric(quakes_dat[,c(4)])/1000, origin = "1970-01-01")
-    str(quakes_dat)
-    quakes_dat$date2<-as.Date(quakes_dat$date)
-    
-  
-  #quakes_dat$trans <- quakes_dat$mag %% 5      #integer remainer
-  
-  #New_Quakes_dat$trans <- New_Quakes_dat$mag %% 5      #integer remainer
-  
-  
-  
-  quakes_master<-unique(rbind(quakes_dat, New_Quakes_dat)) # rbind both data.frames
-  
   # Return the formula text for printing as a caption ----
   output$caption <- renderText({
     formulaText()
   })
   
+
   
   
   output$test <- renderPlot({
+    
+    quakes_master_shiny<- quakes_master %>% filter(date2 >=input$dateRange[1] & date2 <= input$dateRange[2] )
+    
     gg <- ggplot()
     gg <- gg + geom_map(data=world_map, map=world_map,
                         aes(x=long, y=lat, map_id=id),
@@ -112,13 +122,13 @@ server <- function(input, output) {
     gg <- gg + geom_map(data=plates_map, map=plates_map,
                         aes(x=long, y=lat, map_id=id),
                         color="black", size=0.1, fill="#00000000", alpha=0)
-    gg <- gg + geom_point(data=quakes_master,
+    gg <- gg + geom_point(data=quakes_master_shiny,
                           aes(x=coords.x1, y=coords.x2, size=mag),
                           shape=1, alpha=1/3, color="#d47e5d", fill="#00000000")
-    gg <- gg + geom_point(data=subset(quakes_master, mag>7.5),
+    gg <- gg + geom_point(data=subset(quakes_master_shiny, mag>7.5 ),
                           aes(x=coords.x1, y=coords.x2, size=mag),
                           shape=1, alpha=1, color="black", fill="#00000000")
-    gg <- gg + geom_text(data=subset(quakes_master, mag>7.5),
+    gg <- gg + geom_text(data=subset(quakes_master_shiny, mag>7.5 ),
                          aes(x=coords.x1, y=coords.x2, label=sprintf("Mag %2.1f", mag)),
                          color="black", size=3, fontface="bold")
     gg <- gg + scale_size(name="Magnitude",trans='exp'
@@ -130,7 +140,6 @@ server <- function(input, output) {
     #                  name="test",
     #                  labels=c("5", "6", "7", "8"))
     gg <- gg + coord_map("mollweide")
-    
     gg <- gg + theme_map()
     gg <- gg + theme(legend.position=c(0.05, 0.99))
     gg <- gg + theme(legend.direction="horizontal")
