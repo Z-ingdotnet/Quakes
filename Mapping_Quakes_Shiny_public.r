@@ -2,14 +2,26 @@
 #Updated every minute.
 
 
+############################################################################
+############################################################################
+###                                                                      ###
+###                                TITLE:                                ###
+###                                R CODE                                ###
+###                         AUTHOR: IVERSON (Zhuzheng) ZHOU              ###
+###                           DATE: 2020-02-23                           ###
+###                              VERSION 1                               ###
+###                    TOPIC: Real Time Earthquakes Dashboard            ###
+###                    DATASET: World EarthQuakes metadata               ###
+###                                                                      ###
+############################################################################
+############################################################################
+
 
 Packages <- c(
- "shiny","shinydashboard","rgdal","maptools","ggplot2","ggthemes","rgeos"
+ "shiny","shinydashboard","rgdal","maptools","ggplot2","ggthemes","rgeos","dplyr"
 )
 #install.packages(Packages)
 lapply(Packages, library, character.only = TRUE)
-
-
 
 
 setwd("C:/Users/Zing/OneDrive/GitHub/R/Mapping_Quakes")
@@ -54,7 +66,7 @@ header <- dashboardHeader(title = "Basic Dashboard")
 sidebar <- dashboardSidebar(
   sidebarMenu(
     menuItem("Dashboard", tabName = "dashboard", icon = icon("dashboard")),
-    menuItem("Contact-us", icon = icon("barcode ",lib='glyphicon'), 
+    menuItem("Contact-me", icon = icon("barcode ",lib='glyphicon'), 
              href = "http://z-ing.net")
   )
 )
@@ -65,17 +77,31 @@ sidebar <- dashboardSidebar(
 frow1 <- fluidRow(
   column(3,
          dateRangeInput("dateRange", h3("Filter Earthquake Events by date")
-                       , start = min(quakes_master$date), end =  max(quakes_master$date), min = NULL,
-                        max = NULL, format = "yyyy-mm-dd",
+                       , start = min(quakes_master$date), end =  max(quakes_master$date)
+                       , min = NULL,max = NULL
+                       , format = "yyyy-mm-dd",
                         autoclose = TRUE
           )
          
          )
+  
+ # column(3, 
+ #        numericInput("mag", 
+ #                     h3("Input earthquake magnitude scale"), 
+ #                     value = 5))   
+
+  , 
+         sidebarPanel(sliderInput( "magslider", h3("Select earthquake magnitude scale")
+                     ,min = 1,max= 10,value = c(5, 9) ))
+  
   #valueBoxOutput("value1")
  # ,valueBoxOutput("value2")
 
 )
 
+#frow1_1<-  fluidRow(
+#  column(4, verbatimTextOutput("range"))
+#)
 
 frow2 <- fluidRow(
   
@@ -93,11 +119,6 @@ body <- dashboardBody(frow1, frow2
 
 ui <- dashboardPage(title = 'Real Time EarthQuakes from around the globe', header, sidebar, body, skin='red')
 
-# Data pre-processing ----
-# Tweak the "am" variable to have nicer factor labels -- since this
-# doesn't rely on any user inputs, we can do this once at startup
-# and then use the value throughout the lifetime of the app
-
 
 # Define server logic to plot various variables against mpg ----
 server <- function(input, output) {
@@ -109,12 +130,13 @@ server <- function(input, output) {
   })
   
 
-  
+
   
   output$test <- renderPlot({
     
-    quakes_master_shiny<- quakes_master %>% filter(date2 >=input$dateRange[1] & date2 <= input$dateRange[2] )
-    
+   quakes_master_shiny<- quakes_master %>% filter( (mag>=input$magslider[1] & mag<=input$magslider[2]) &
+                                        (date2 >=input$dateRange[1] & date2 <= input$dateRange[2] ))
+
     gg <- ggplot()
     gg <- gg + geom_map(data=world_map, map=world_map,
                         aes(x=long, y=lat, map_id=id),
@@ -125,10 +147,10 @@ server <- function(input, output) {
     gg <- gg + geom_point(data=quakes_master_shiny,
                           aes(x=coords.x1, y=coords.x2, size=mag),
                           shape=1, alpha=1/3, color="#d47e5d", fill="#00000000")
-    gg <- gg + geom_point(data=subset(quakes_master_shiny, mag>7.5 ),
+    gg <- gg + geom_point(data=subset(quakes_master_shiny, mag>7.5),
                           aes(x=coords.x1, y=coords.x2, size=mag),
                           shape=1, alpha=1, color="black", fill="#00000000")
-    gg <- gg + geom_text(data=subset(quakes_master_shiny, mag>7.5 ),
+    gg <- gg + geom_text(data=subset(quakes_master_shiny, mag>7.5),
                          aes(x=coords.x1, y=coords.x2, label=sprintf("Mag %2.1f", mag)),
                          color="black", size=3, fontface="bold")
     gg <- gg + scale_size(name="Magnitude",trans='exp'
