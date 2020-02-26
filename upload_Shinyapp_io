@@ -1,0 +1,8 @@
+rsconnect::setAccountInfo(name='iverson-zhuzhengzhou',
+                          token='15150C946703B1B5CD8EA4DEE01D662A',
+                          secret='hashed')
+
+
+
+library(rsconnect)
+rsconnect::deployApp('C:/Users/Zing/OneDrive/GitHub/R/Mapping_Quakes/Shiny_Map')
