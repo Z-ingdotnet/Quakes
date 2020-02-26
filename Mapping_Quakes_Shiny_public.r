@@ -54,7 +54,8 @@ New_Quakes_dat$date2<-as.Date(New_Quakes_dat$date)
 #quakes_dat$trans <- quakes_dat$mag %% 5      #integer remainer
 #New_Quakes_dat$trans <- New_Quakes_dat$mag %% 5      #integer remainer
 
-load("./quakes_master.Rdata")
+#load("./quakes_master.Rdata")
+source_data("https://github.com/Z-ingdotnet/Shiny_Mapping_Quakes/blob/master/quakes_master.Rdata?raw=true")
 
 quakes_master<-unique(rbind(quakes_master, New_Quakes_dat)) # rbind both data.frames
 save(quakes_master, file = "./quakes_master.Rdata")
